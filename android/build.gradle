@@ -29,6 +29,7 @@ android {
         namespace = "co.paystack.flutterpaystack"
     }
 
+    namespace 'co.paystack.flutterpaystack'
     compileSdkVersion 32
 
     compileOptions {
