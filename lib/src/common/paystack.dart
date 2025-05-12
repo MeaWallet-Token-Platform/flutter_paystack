@@ -15,6 +15,9 @@ import 'package:flutter_paystack/src/models/checkout_response.dart';
 import 'package:flutter_paystack/src/transaction/card_transaction_manager.dart';
 import 'package:flutter_paystack/src/widgets/checkout/checkout_widget.dart';
 
+bool mIsDarkMode = false;
+Color mDarkModeTextColor = Colors.white;
+
 class PaystackPlugin {
   bool _sdkInitialized = false;
   String _publicKey = "";
@@ -77,8 +80,7 @@ class PaystackPlugin {
   ///
   /// [charge] - the charge object.
 
-  Future<CheckoutResponse> chargeCard(BuildContext context,
-      {required Charge charge}) {
+  Future<CheckoutResponse> chargeCard(BuildContext context, {required Charge charge}) {
     _performChecks();
 
     return _Paystack(publicKey).chargeCard(context: context, charge: charge);
@@ -126,6 +128,8 @@ class PaystackPlugin {
     Widget? logo,
     bool hideEmail = false,
     bool hideAmount = false,
+    bool isDarkMode = false,
+    Color? darkModeTextColor,
   }) async {
     return _Paystack(publicKey).checkout(
       context,
@@ -135,13 +139,14 @@ class PaystackPlugin {
       logo: logo,
       hideAmount: hideAmount,
       hideEmail: hideEmail,
+      darkModeTextColor: darkModeTextColor,
+      isDarkMode: isDarkMode,
     );
   }
 
   _validateSdkInitialized() {
     if (!sdkInitialized) {
-      throw new PaystackSdkNotInitializedException(
-          'Paystack SDK has not been initialized. The SDK has'
+      throw new PaystackSdkNotInitializedException('Paystack SDK has not been initialized. The SDK has'
           ' to be initialized before use');
     }
   }
@@ -152,14 +157,8 @@ class _Paystack {
 
   _Paystack(this.publicKey);
 
-  Future<CheckoutResponse> chargeCard(
-      {required BuildContext context, required Charge charge}) {
-    return new CardTransactionManager(
-            service: CardService(),
-            charge: charge,
-            context: context,
-            publicKey: publicKey)
-        .chargeCard();
+  Future<CheckoutResponse> chargeCard({required BuildContext context, required Charge charge}) {
+    return new CardTransactionManager(service: CardService(), charge: charge, context: context, publicKey: publicKey).chargeCard();
   }
 
   Future<CheckoutResponse> checkout(
@@ -170,7 +169,11 @@ class _Paystack {
     bool hideEmail = false,
     bool hideAmount = false,
     Widget? logo,
+    bool isDarkMode = false,
+    Color? darkModeTextColor,
   }) async {
+    mIsDarkMode = isDarkMode;
+    mDarkModeTextColor = darkModeTextColor ?? Colors.white;
     assert(() {
       _validateChargeAndKey(charge);
       switch (method) {
@@ -192,16 +195,29 @@ class _Paystack {
     CheckoutResponse? response = await showDialog(
       barrierDismissible: false,
       context: context,
-      builder: (BuildContext context) => new CheckoutWidget(
-        publicKey: publicKey,
-        bankService: BankService(),
-        cardsService: CardService(),
-        method: method,
-        charge: charge,
-        fullscreen: fullscreen,
-        logo: logo,
-        hideAmount: hideAmount,
-        hideEmail: hideEmail,
+      builder: (BuildContext context) => Theme(
+        data: Theme.of(context).copyWith(
+          primaryColor: Theme.of(context).colorScheme.secondary,
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+                primary: Theme.of(context).colorScheme.secondary,
+              ),
+          textTheme: Theme.of(context).textTheme.apply(
+                bodyColor: mIsDarkMode ? mDarkModeTextColor : Theme.of(context).colorScheme.onSurface,
+                displayColor: mIsDarkMode ? mDarkModeTextColor : Theme.of(context).colorScheme.onSurface,
+              ),
+        ),
+        child: new CheckoutWidget(
+          publicKey: publicKey,
+          bankService: BankService(),
+          cardsService: CardService(),
+          method: method,
+          charge: charge,
+          fullscreen: fullscreen,
+          isDarkMode: mIsDarkMode,
+          logo: logo,
+          hideAmount: hideAmount,
+          hideEmail: hideEmail,
+        ),
       ),
     );
     return response == null ? CheckoutResponse.defaults() : response;
@@ -218,7 +234,6 @@ class _Paystack {
 }
 
 typedef void OnTransactionChange<Transaction>(Transaction transaction);
-typedef void OnTransactionError<Object, Transaction>(
-    Object e, Transaction transaction);
+typedef void OnTransactionError<Object, Transaction>(Object e, Transaction transaction);
 
 enum CheckoutMethod { card, bank, selectable }
